@@ -8,7 +8,7 @@
         async function fetchData() {
             const response = await fetch('/data');  // 새로운 '/data' 엔드포인트에서 데이터 가져옴
             const data = await response.json();
-            document.getElementById("model").textContent = data.model || 'No model';
+            document.getElementById("camera_num").textContent = data.camera_num || 'No camera';
             document.getElementById("person_count").textContent = data.person_count || 'No count';
             document.getElementById("timestamp").textContent = data.timestamp || 'No timestamp';
         }
@@ -18,7 +18,7 @@
 </head>
 <body>
     <h1>Image Analysis Result</h1>
-    <p>Model: <span id="model">Loading...</span></p>
+    <p>Camera Num: <span id="camera_num">Loading...</span></p>
     <p>Person Count: <span id="person_count">Loading...</span></p>
     <p>Timestamp: <span id="timestamp">Loading...</span></p>
 </body>
