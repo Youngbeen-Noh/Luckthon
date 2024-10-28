@@ -1,6 +1,7 @@
 model/
-*.jpg
-*.jpeg
+/*.jpg
+/*.jpeg
+/static/uploads/*
 
 .venv
 .venv/**

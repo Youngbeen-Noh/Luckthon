@@ -103,11 +103,23 @@
         .settings-menu button:hover {
             background-color: #f0f0f0;
         }
+
+        /* 이미지 팝업 */
+        .popup-image {
+            position: absolute;
+            width: 100px;
+            height: auto;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            display: none; /* 기본적으로 숨김 */
+            background-color: white;
+            z-index: 10;
+        }
     </style>
 </head>
 
 <body>
-    <div class="upload-container">
+    <div class="upload-container" id="upload-container" onclick="hidePopup()">
         <!-- 지도 업로드 버튼 -->
         <label class="upload-button" for="file-input" id="upload-button">
             <img src="{{ url_for('static', filename='images/upload.png')}}" alt="Upload Icon">
@@ -132,8 +144,12 @@
         </div>
     </div>
 
+    <!-- 이미지 팝업 엘리먼트 -->
+    <img id="popup-image" class="popup-image" alt="카메라 이미지">
+
     <script>
         let isPersonAddMode = false;
+        let cameraData = {};
 
         // 이미지 미리보기 함수
         function previewImage(event) {
@@ -148,6 +164,7 @@
                     preview.src = e.target.result;
                     preview.style.display = 'block';
                     uploadButton.style.display = 'none';
+                    resetCameraData()
                 }
 
                 reader.readAsDataURL(input.files[0]);
@@ -184,6 +201,12 @@
                     const cameraID = data.camera_id;
                     personIcon.dataset.cameraNumber = cameraID;
                     alert(`카메라가 추가되었습니다. ID: ${cameraID}`);
+
+                    // personIcon 클릭 시 이미지 팝업
+                    personIcon.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        showPopup(cameraID, x, y);
+                    });
                 })
                 .catch(error => {
                     console.error("카메라 추가 에러:", error);
@@ -211,21 +234,16 @@
             const uploadButton = document.getElementById('upload-button');
             const settingsMenu = document.getElementById('settings-menu');
 
-            // 초기 상태로 복원
             preview.style.display = 'none';
             uploadButton.style.display = 'flex';
             settingsMenu.style.display = 'none';
 
-            // 서버 및 프론트엔드 카메라 정보 초기화
             resetCameraData();
         }
 
-        // 서버와 프론트엔드의 카메라 데이터를 초기화
         function resetCameraData() {
-            // 프론트엔드의 카메라 아이콘 제거
             document.querySelectorAll('.person-icon').forEach(icon => icon.remove());
 
-            // 서버에 카메라 데이터 초기화 요청
             fetch('/reset_cameras', { method: 'POST' })
                 .then(response => response.json())
                 .then(data => {
@@ -236,25 +254,39 @@
                 });
         }
 
-        // 서버에서 받아온 데이터를 사용하여 아이콘 색상 업데이트
-        async function updateAllIcons() {
-            cameraData = await fetchCameraData();
-            document.querySelectorAll('.person-icon').forEach(icon => {
-                const cameraNumber = icon.dataset.cameraNumber;
-                if (cameraNumber) {
-                    updateIconColor(icon, cameraNumber);
-                }
-            });
+        // 팝업 이미지 표시 함수
+        function showPopup(cameraID, x, y) {
+            fetch(`/image/${cameraID}`)
+                .then(response => response.blob())
+                .then(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const popupImage = document.getElementById('popup-image');
+                    popupImage.src = url;
+                    popupImage.style.display = 'block';
+                    popupImage.style.left = `${x + 20}px`;
+                    popupImage.style.top = `${y + 20}px`;
+                })
+                .catch(error => {
+                    console.error("이미지 요청 에러:", error);
+                });
         }
 
-        // 특정 카메라 번호에 따라 아이콘 색상을 업데이트하는 함수
-        function updateIconColor(icon, cameraNumber) {
-            const color = cameraData[cameraNumber] || "gray";
-            icon.style.backgroundColor = color;
+        // 지도 클릭 시 팝업 숨기기
+        function hidePopup() {
+            const popupImage = document.getElementById('popup-image');
+            popupImage.style.display = 'none';
         }
 
         // 일정 시간마다 서버로부터 데이터 갱신
-        setInterval(updateAllIcons, 5000); // 5초마다 데이터 갱신
+        setInterval(() => {
+            fetch('/get_camera_data')
+                .then(response => response.json())
+                .then(data => {
+                    cameraData = data;
+                    updateAllIcons();
+                })
+                .catch(error => console.error("카메라 데이터 갱신 에러:", error));
+        }, 5000); // 5초마다 데이터 갱신
     </script>
 </body>
 
