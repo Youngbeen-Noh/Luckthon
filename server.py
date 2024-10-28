@@ -9,7 +9,7 @@ from waitress import serve
 
 app = Flask(__name__)
 analyzed_data = None  # 웹페이지에 표시할 분석 데이터
-camera_names=[]
+cameras=[]
 
 @app.route('/upload', methods=['POST'])
 def upload_image():
@@ -80,6 +80,19 @@ def get_data():
 @app.route('/')
 def index():
     return render_template('Web.html')
+
+@app.route('/add_camera', methods=['POST'])
+def add_camera():
+    # 카메라 고유 ID 생성 (000, 001, 002...)
+    camera_id = f"{len(cameras):03}"
+    cameras.append(camera_id)
+    return jsonify({"camera_id": camera_id}), 200
+
+@app.route('/reset_cameras', methods=['POST'])
+def reset_cameras():
+    # 카메라 정보를 초기화
+    cameras.clear()
+    return jsonify({"status": "success", "message": "카메라 정보 초기화 완료"}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000, debug=True)

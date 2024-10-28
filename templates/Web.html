@@ -134,7 +134,6 @@
 
     <script>
         let isPersonAddMode = false;
-        let cameraData = {};
 
         // 이미지 미리보기 함수
         function previewImage(event) {
@@ -161,7 +160,7 @@
             alert("원하는 위치를 클릭하여 사람 아이콘을 추가하세요.");
         }
 
-        // 미리보기 이미지 클릭 시 person 아이콘 추가
+        // 미리보기 이미지 클릭 시 카메라 아이콘 추가
         function addPersonIcon(event) {
             if (!isPersonAddMode) return;
 
@@ -178,14 +177,17 @@
 
             document.querySelector('.upload-container').appendChild(personIcon);
 
-            // 아이콘 클릭 시 카메라 번호 설정
-            personIcon.addEventListener('click', () => {
-                const cameraNumber = prompt("카메라 번호를 설정하세요:");
-                if (cameraNumber) {
-                    personIcon.dataset.cameraNumber = cameraNumber;
-                    updateIconColor(personIcon, cameraNumber);
-                }
-            });
+            // 서버로 카메라 추가 요청을 보냄
+            fetch('/add_camera', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    const cameraID = data.camera_id;
+                    personIcon.dataset.cameraNumber = cameraID;
+                    alert(`카메라가 추가되었습니다. ID: ${cameraID}`);
+                })
+                .catch(error => {
+                    console.error("카메라 추가 에러:", error);
+                });
 
             // 카메라 추가 모드 해제
             isPersonAddMode = false;
@@ -214,21 +216,24 @@
             uploadButton.style.display = 'flex';
             settingsMenu.style.display = 'none';
 
-            // person 아이콘 초기화
-            document.querySelectorAll('.person-icon').forEach(icon => icon.remove());
+            // 서버 및 프론트엔드 카메라 정보 초기화
+            resetCameraData();
         }
 
-        // 서버로부터 카메라 데이터를 요청하는 함수 (모의 데이터 사용)
-        function fetchCameraData() {
-            return new Promise((resolve) => {
-                setTimeout(() => {
-                    resolve({
-                        1: "red",
-                        2: "blue",
-                        3: "green",
-                    });
-                }, 1000);
-            });
+        // 서버와 프론트엔드의 카메라 데이터를 초기화
+        function resetCameraData() {
+            // 프론트엔드의 카메라 아이콘 제거
+            document.querySelectorAll('.person-icon').forEach(icon => icon.remove());
+
+            // 서버에 카메라 데이터 초기화 요청
+            fetch('/reset_cameras', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("카메라 정보 초기화 완료:", data.message);
+                })
+                .catch(error => {
+                    console.error("카메라 초기화 에러:", error);
+                });
         }
 
         // 서버에서 받아온 데이터를 사용하여 아이콘 색상 업데이트
