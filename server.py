@@ -96,6 +96,10 @@ def get_image(camera_name):
         return send_file(os.path.join(UPLOAD_FOLDER, filename), mimetype='image/jpeg')
     return "해당 카메라의 분석 데이터가 없습니다.", 404
 
+@app.route('/get_camera_data', methods=['GET'])
+def get_camera_data():
+    # 전체 카메라의 최신 분석 데이터를 반환
+    return jsonify(analyzed_data), 200
 
 @app.route('/reset_cameras', methods=['POST'])
 def reset_cameras():

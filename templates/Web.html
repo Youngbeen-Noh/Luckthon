@@ -277,7 +277,16 @@
             popupImage.style.display = 'none';
         }
 
-
+        // 일정 시간마다 서버로부터 데이터 갱신
+        setInterval(() => {
+            fetch('/get_camera_data')
+                .then(response => response.json())
+                .then(data => {
+                    cameraData = data;
+                    updateAllIcons();
+                })
+                .catch(error => console.error("카메라 데이터 갱신 에러:", error));
+        }, 5000); // 5초마다 데이터 갱신
     </script>
 </body>
 
