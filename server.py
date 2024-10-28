@@ -47,11 +47,16 @@ def upload_image():
     image = np.frombuffer(image_file.read(), np.uint8)
     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
 
+    # camera_name
+    camera_name = Path(image_file.filename).stem
+    if camera_name not in camera_names:
+        return "아직 카메라가 설치되지 않았습니다.", 400
+
     # YOLO 모델 로드 및 이미지 분석
     model_name = 'yolo11n'
     model_path = os.path.join(os.path.dirname(__file__), f'model/{model_name}.pt')
     model = YOLO(model_path)
-    results = model.predict(image, stream=True, conf=0.3, imgsz=1280)
+    results = model.predict(image, stream=True, conf=0.1, imgsz=1280)
 
     # 분석된 결과에서 사람 수 카운트 및 바운딩 박스 그리기
     for result in results:
@@ -69,9 +74,6 @@ def upload_image():
             cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(image, f'{label} {confidence:.2f}', (x1, y1 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-
-    # camera_name
-    camera_name = Path(image_file.filename).stem
 
     # 파일 이름을 생성하여 분석 이미지 저장
     output_filename = get_next_filename(camera_name)
@@ -94,10 +96,6 @@ def get_image(camera_name):
         return send_file(os.path.join(UPLOAD_FOLDER, filename), mimetype='image/jpeg')
     return "해당 카메라의 분석 데이터가 없습니다.", 404
 
-@app.route('/get_camera_data', methods=['GET'])
-def get_camera_data():
-    # 전체 카메라의 최신 분석 데이터를 반환
-    return jsonify(analyzed_data), 200
 
 @app.route('/reset_cameras', methods=['POST'])
 def reset_cameras():
