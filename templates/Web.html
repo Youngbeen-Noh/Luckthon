@@ -101,7 +101,7 @@
             position: absolute;
             width: 10px;
             height: 17px;
-            background-image: url('./source/person.png');
+            background-image: url("{{ url_for('static', filename='images/person.png') }}");
             background-size: cover;
             background-position: center;
         }
@@ -112,7 +112,7 @@
     <div class="upload-container">
         <!-- 업로드 버튼 -->
         <label class="upload-button" for="file-input" id="upload-button">
-            <img src="./source/upload.png" alt="Upload Icon">
+            <img src="{{ url_for('static', filename='images/upload.png') }}" alt="Upload Icon">
             <div>지도 업로드</div>
         </label>
         <input type="file" id="file-input" accept="image/*" onchange="previewImage(event)">

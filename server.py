@@ -38,7 +38,7 @@ def upload_image():
 
     # 모델 설정 및 분석 시작
     model = YOLO(model_path)
-    results = model.predict(image, stream=True, conf=0.3, imgsz=1920)
+    results = model.predict(image, stream=True, conf=0.3, imgsz=1280)
 
     # 결과에서 box들 저장
     for result in results:
@@ -79,7 +79,7 @@ def get_data():
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('Web.html')
 
 if __name__ == '__main__':
-    serve(app, host='0.0.0.0', port=8000)
+    app.run(host='0.0.0.0', port=8000, debug=True)
