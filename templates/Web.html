@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Upload</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            margin: 0;
+        }
+
+        .upload-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .upload-button {
+            background-color: #c4c4c4;
+            border: none;
+            border-radius: 10px;
+            width: 100px;
+            height: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .upload-button img {
+            width: 50%;
+            height: 50%;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        /* 미리보기 이미지 */
+        .preview {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 10px;
+        }
+
+        /* 우측 하단 파란색 더하기 아이콘 */
+        .add-icon {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background-color: #007bff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        /* 팝업 메뉴 */
+        .popup-menu,
+        .settings-menu {
+            position: absolute;
+            bottom: 50px;
+            right: 10px;
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            display: none;
+            flex-direction: column;
+        }
+
+        .popup-menu button,
+        .settings-menu button {
+            background: none;
+            border: none;
+            padding: 10px;
+            text-align: left;
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .popup-menu button:hover,
+        .settings-menu button:hover {
+            background-color: #f0f0f0;
+        }
+
+        /* person 아이콘 */
+        .person-icon {
+            position: absolute;
+            width: 10px;
+            height: 17px;
+            background-image: url('./source/person.png');
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="upload-container">
+        <!-- 업로드 버튼 -->
+        <label class="upload-button" for="file-input" id="upload-button">
+            <img src="./source/upload.png" alt="Upload Icon">
+            <div>지도 업로드</div>
+        </label>
+        <input type="file" id="file-input" accept="image/*" onchange="previewImage(event)">
+
+        <!-- 미리보기 이미지 -->
+        <img id="preview" class="preview" alt="미리보기 이미지" style="display:none;" onclick="addPersonIcon(event)">
+
+        <!-- 우측 하단 파란색 더하기 아이콘 -->
+        <div class="add-icon" id="add-icon" onclick="togglePopupMenu()" style="display: none;">+</div>
+
+        <!-- 팝업 메뉴 -->
+        <div class="popup-menu" id="popup-menu">
+            <button onclick="enablePersonAddMode()">카메라 추가</button>
+            <button onclick="toggleSettingsMenu()">설정</button>
+        </div>
+
+        <!-- 설정 메뉴 -->
+        <div class="settings-menu" id="settings-menu">
+            <button onclick="alert('인구 표시 범위')">인구 표시 범위</button>
+            <button onclick="resetImage()">지도 재설정</button>
+            <button onclick="initialize()">초기화</button>
+        </div>
+    </div>
+
+    <script>
+        let isPersonAddMode = false;
+        let remainingCameras = 0; // 추가할 카메라 개수
+
+        // 이미지 미리보기 함수
+        function previewImage(event) {
+            const input = event.target;
+            const preview = document.getElementById('preview');
+            const uploadButton = document.getElementById('upload-button');
+            const addIcon = document.getElementById('add-icon');
+
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    uploadButton.style.display = 'none';  // 지도 업로드 버튼 숨기기
+                    addIcon.style.display = 'flex';      // 파란색 더하기 아이콘 보이기
+                }
+
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // 팝업 메뉴 토글 함수
+        function togglePopupMenu() {
+            const popupMenu = document.getElementById('popup-menu');
+            popupMenu.style.display = popupMenu.style.display === 'none' ? 'flex' : 'none';
+        }
+
+        // 설정 메뉴 토글 함수
+        function toggleSettingsMenu() {
+            const settingsMenu = document.getElementById('settings-menu');
+            settingsMenu.style.display = settingsMenu.style.display === 'none' ? 'flex' : 'none';
+        }
+
+        // 카메라 추가 모드 활성화 함수
+        function enablePersonAddMode() {
+            const cameraCount = prompt("추가할 카메라 개수를 입력하세요:");
+            remainingCameras = parseInt(cameraCount);
+
+            if (isNaN(remainingCameras) || remainingCameras <= 0) {
+                alert("올바른 숫자를 입력하세요.");
+                return;
+            }
+
+            isPersonAddMode = true;
+            document.getElementById('popup-menu').style.display = 'none'; // 메뉴 닫기
+            alert(`원하는 위치를 클릭하여 ${remainingCameras}개의 사람 아이콘을 추가하세요.`);
+        }
+
+        // 미리보기 이미지 클릭 시 person 아이콘 추가
+        function addPersonIcon(event) {
+            if (!isPersonAddMode || remainingCameras <= 0) return;
+
+            const preview = document.getElementById('preview');
+            const personIcon = document.createElement('div');
+            personIcon.classList.add('person-icon');
+
+            // 클릭 위치에 아이콘 추가
+            const rect = preview.getBoundingClientRect();
+            const x = event.clientX - rect.left - 6; // 아이콘 중심 조정
+            const y = event.clientY - rect.top - 6;
+
+            personIcon.style.left = `${x}px`;
+            personIcon.style.top = `${y}px`;
+
+            document.querySelector('.upload-container').appendChild(personIcon);
+
+            // 카메라 개수 감소
+            remainingCameras--;
+            if (remainingCameras <= 0) {
+                isPersonAddMode = false;
+                alert("모든 카메라 아이콘이 추가되었습니다.");
+            }
+        }
+
+        // 지도 재설정 함수
+        function resetImage() {
+            document.getElementById('file-input').click();
+            document.getElementById('popup-menu').style.display = 'none'; // 메뉴 닫기
+            document.getElementById('settings-menu').style.display = 'none';
+        }
+
+        // 초기화 함수
+        function initialize() {
+            const preview = document.getElementById('preview');
+            const uploadButton = document.getElementById('upload-button');
+            const addIcon = document.getElementById('add-icon');
+            const popupMenu = document.getElementById('popup-menu');
+            const settingsMenu = document.getElementById('settings-menu');
+
+            // 초기 상태로 복원
+            preview.style.display = 'none';
+            uploadButton.style.display = 'flex';
+            addIcon.style.display = 'none';
+            popupMenu.style.display = 'none';
+            settingsMenu.style.display = 'none';
+
+            // person 아이콘 초기화
+            document.querySelectorAll('.person-icon').forEach(icon => icon.remove());
+        }
+    </script>
+</body>
+
+</html>
