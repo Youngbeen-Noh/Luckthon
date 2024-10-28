@@ -11,25 +11,35 @@ app = Flask(__name__)
 analyzed_data = None  # 웹페이지에 표시할 분석 데이터
 cameras=[]
 
+# 이미지 저장 폴더
+UPLOAD_FOLDER = 'uploads'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
 @app.route('/upload', methods=['POST'])
 def upload_image():
     global analyzed_data
-    global camera_names
+    global cameras
     
     # 이미지 파일 확인
-    if 'image' not in request.files:
+    if 'file' not in request.files:
         return "이미지가 없습니다.", 400
     
+    # # 이미지 저장
+    # file = request.files['file']
+    # filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+    # file.save(filepath)
+
     # 이미지 변환
-    image_file = request.files['image']
+    image_file = request.files['file']
     image = np.frombuffer(image_file.read(), np.uint8)
     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
-    
+
     # 카메라 이름이 배열에 없으면 추가
     camera_name=Path(image_file.filename).stem
-    if camera_name not in camera_names:
-        camera_names.append(camera_name)
-    camera_index = camera_names.index(camera_name)
+    if camera_name not in cameras:
+        cameras.append(camera_name)
+    camera_index = cameras.index(camera_name)
     
     # YOLO 모델 로드 및 이미지 분석
     model_name = 'yolo11n'
@@ -61,7 +71,7 @@ def upload_image():
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
     # 이미지 저장
-    output_path = os.path.join(current_dir, f'analyzed_image{camera_index+1}.jpg')
+    output_path = os.path.join(UPLOAD_FOLDER, f'analyzed_image{camera_index+1}.jpg')
     cv2.imwrite(output_path, image)
 
     analyzed_data = {
