@@ -1,15 +1,31 @@
-from flask import Flask, request, jsonify, render_template, send_file
+from flask import Flask, request, jsonify, render_template, send_file, url_for
 from ultralytics import YOLO
 import cv2
 import numpy as np
 import os
+import json
 from pathlib import Path
 import datetime
 
 app = Flask(__name__)
 UPLOAD_FOLDER = 'static/uploads'  # 이미지 저장 경로를 static/uploads로 설정
+MAP_IMAGE_PATH = os.path.join(UPLOAD_FOLDER, 'map.jpg')
+
 analyzed_data = {}
 camera_names = {}
+# Persistent page data
+is_page_data = False
+page_data = {
+    "map_uploaded": False,
+    "map_url": None,
+    "density_thresholds": {
+        "veryCrowded": 10,
+        "crowded": 5,
+        "moderate": 2,
+        "few": 0
+    },
+    "cameras": []
+}
 
 # 업로드 폴더가 존재하지 않으면 생성
 if not os.path.exists(UPLOAD_FOLDER):
@@ -17,6 +33,7 @@ if not os.path.exists(UPLOAD_FOLDER):
 
 # 카메라 이름에 따라 일련번호가 붙은 파일명을 생성하는 함수
 def get_next_filename(camera_name):
+    global camera_names
     count = camera_names.get(camera_name, 0)
     filename = f"{camera_name}.jpg"
     camera_names[camera_name] = count + 1
@@ -26,8 +43,42 @@ def get_next_filename(camera_name):
 def index():
     return render_template('Web.html')
 
+@app.route('/get_page_data', methods=['GET'])
+def get_page_data():
+    global page_data
+    if(page_data["map_uploaded"] == True):
+        page_data["map_url"] = url_for('static', filename='uploads/map.jpg') if page_data["map_uploaded"] else None
+    return jsonify(page_data)
+
+@app.route('/save_page_data', methods=['POST'])
+def save_page_data():
+    # Save map image if uploaded
+    global is_page_data
+    global page_data
+    if 'map' in request.files:
+        is_page_data = True
+        map_file = request.files['map']
+        map_file.save(MAP_IMAGE_PATH)
+        page_data["map_uploaded"] = True
+    else:
+        if not is_page_data:
+            return jsonify({"status" : "map load fail"})
+
+    # Update density thresholds
+    density_thresholds = json.loads(request.form.get("density_thresholds", "{}"))
+    page_data["density_thresholds"].update(density_thresholds)
+
+    # Update camera positions
+    cameras = json.loads(request.form.get("cameras", "[]"))
+    page_data["cameras"] = [{"id": f"Camera_{i+1}", "x": cam["x"], "y": cam["y"]} for i, cam in enumerate(cameras)]
+
+    print(page_data)
+    return jsonify({"status": "success", "message": "Settings and data saved successfully"}), 200
+
 @app.route('/add_camera', methods=['POST'])
 def add_camera():
+    global analyzed_data
+    global camera_names
     # 새로운 카메라 ID 생성
     camera_id = f"Camera_{len(camera_names) + 1}"
     camera_names[camera_id] = 0  # 초기 일련번호 설정
@@ -38,11 +89,14 @@ def add_camera():
     }
     return jsonify({"camera_id": camera_id}), 200
 
+
 @app.route('/upload', methods=['POST'])
 def upload_image():
     if 'file' not in request.files:
         return "이미지가 누락되었습니다.", 400
 
+    global analyzed_data
+    global camera_names
     image_file = request.files['file']
     image = np.frombuffer(image_file.read(), np.uint8)
     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
@@ -50,13 +104,13 @@ def upload_image():
     # camera_name
     camera_name = Path(image_file.filename).stem
     if camera_name not in camera_names:
-        return "아직 카메라가 설치되지 않았습니다.", 400
+        return "아직 카메라가 설치되지 않았습니다.", 401
 
     # YOLO 모델 로드 및 이미지 분석
     model_name = 'yolo11n'
     model_path = os.path.join(os.path.dirname(__file__), f'model/{model_name}.pt')
     model = YOLO(model_path)
-    results = model.predict(image, stream=True, conf=0.1, imgsz=1280)
+    results = model.predict(image, stream=True, conf=0.3, imgsz=1280)
 
     # 분석된 결과에서 사람 수 카운트 및 바운딩 박스 그리기
     for result in results:
@@ -90,6 +144,7 @@ def upload_image():
 
 @app.route('/image/<camera_name>', methods=['GET'])
 def get_image(camera_name):
+    global analyzed_data
     # 카메라 이름을 기반으로 저장된 최신 분석 이미지 반환
     if camera_name in analyzed_data and analyzed_data[camera_name]["filename"]:
         filename = analyzed_data[camera_name]["filename"]
@@ -98,14 +153,29 @@ def get_image(camera_name):
 
 @app.route('/get_camera_data', methods=['GET'])
 def get_camera_data():
+    global analyzed_data
     # 전체 카메라의 최신 분석 데이터를 반환
     return jsonify(analyzed_data), 200
 
-@app.route('/reset_cameras', methods=['POST'])
-def reset_cameras():
+@app.route('/reset_data', methods=['POST'])
+def reset_data():
+    global page_data
+    global is_page_data
     # 서버의 분석 데이터 및 파일 초기화
+    is_page_data = False
     analyzed_data.clear()
     camera_names.clear()
+    page_data = {
+        "map_uploaded": False,
+        "map_url": None,
+        "density_thresholds": {
+            "veryCrowded": 10,
+            "crowded": 5,
+            "moderate": 2,
+            "few": 0
+        },
+        "cameras": []
+    }
     for file in os.listdir(UPLOAD_FOLDER):
         os.remove(os.path.join(UPLOAD_FOLDER, file))
     return jsonify({"message": "카메라 데이터 초기화 완료"}), 200
