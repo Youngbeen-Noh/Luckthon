@@ -270,7 +270,6 @@
                         document.getElementById('upload-button').style.display = 'none';
                     }
                     applyDensitySettings(data.density_thresholds);
-                    console.log(data.cameras)
                     loadIcons(data.cameras);
                 })
                 .catch(error => console.error("Error loading settings:", error));
@@ -429,7 +428,6 @@
         }
 
         function updateAllIcons() {
-            console.log(document.querySelectorAll('.crowd_point'))
             document.querySelectorAll('.crowd_point').forEach(icon => {
                 const cameraNumber = icon.dataset.cameraNumber;
                 const cameraInfo = cameraData[cameraNumber];
@@ -454,9 +452,7 @@
             fetch('/get_camera_data')
                 .then(response => response.json())
                 .then(data => {
-                    console.log(data);
                     cameraData = data;
-                    console.log(cameraData)
                     updateAllIcons();
                 })
                 .catch(error => console.error("카메라 데이터 갱신 에러:", error));
