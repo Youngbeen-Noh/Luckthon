@@ -47,9 +47,12 @@
 
         /* Preview Image */
         .preview {
-            max-width: 800%;
-            max-height: 800px;
+            max-width: 90vw;  /* Viewport 너비의 90% */
+            max-height: 80vh; /* Viewport 높이의 80% */
+            width: auto;
+            height: auto;
             border-radius: 10px;
+            object-fit: contain; /* 원본 비율 유지 */
         }
 
         .crowded-container {
@@ -154,7 +157,6 @@
             padding: 10px;
             border-radius: 5px;
             cursor: pointer;
-            margin-top: 10px;
         }
     </style>
 </head>
@@ -172,6 +174,8 @@
         <div class="button-container">
             <button class="camera-add-button" onclick="enable_CP_AddMode()">카메라 추가</button>
             <button class="settings-button" onclick="toggleSettingsMenu()">설정</button>
+            <!-- Save settings button -->
+            <button class="save-button" onclick="saveSettings()">Save Settings</button>
         </div>
     </div>
 
@@ -193,8 +197,6 @@
             <div>한산</div>
         </label>
     </div>
-    <!-- Save settings button -->
-    <button class="save-button" onclick="saveSettings()">Save Settings</button>
 
     <div class="settings-menu" id="settings-menu">
         <div class="setting-button-list" id="main-buttons">
@@ -225,6 +227,7 @@
         let cameraCnt = 0;
         let cameraData = {};
         let mapFile = null;
+        map_uploaded = false;
         let is_CP_AddMode = false;
         let crowd_points = [];
         let veryCrowdedThreshold = 10;
@@ -236,11 +239,11 @@
         function saveSettings() {
             const formData = new FormData();
 
-            if (mapFile) {
+            if (map_uploaded) {
                 formData.append("map", mapFile); // mapFile을 FormData에 추가
                 console.log("mapFile 추가됨:", mapFile); // 디버깅을 위한 콘솔 로그
             } else {
-                console.log("mapFile이 선택되지 않았습니다.");
+                console.log("map이 선택되지 않았습니다.");
             }
 
             // 예제 설정 데이터 - 밀도 기준과 카메라 위치 데이터 추가
@@ -278,9 +281,15 @@
                     applyDensitySettings(data.density_thresholds);
                     loadIcons(data.cameras);
                     cameraNames = data.cameraNames
+                    console.log(cameraNames);
                     cameraCnt = Object.keys(data.cameraNames).length
+                    console.log(cameraCnt);
+
+
                 })
                 .catch(error => console.error("Error loading settings:", error));
+                // Ensure settings menu is hidden when loading settings
+                document.getElementById('settings-menu').style.display = 'none';
         }
 
         function applyDensitySettings(thresholds) {
@@ -325,6 +334,7 @@
                     uploadButton.style.visibility = 'hidden';
                 };
                 reader.readAsDataURL(mapFile);
+                map_uploaded = true;
             }
         }
 
@@ -345,10 +355,12 @@
             const crowd_point = document.createElement('div');
             crowd_point.classList.add('crowd_point');
 
+            
             const rect = preview.getBoundingClientRect();
-            console.log(rect.left);
-            const x = event.clientX - rect.left - 20;
-            const y = event.clientY - rect.top + 60 + window.scrollY;
+            console.log(rect);
+            const x = event.clientX - rect.left + preview.offsetLeft - 20;
+            const y = event.clientY - rect.top + preview.offsetTop - 30 + window.scrollY;
+
 
             crowd_point.style.left = `${x}px`;
             crowd_point.style.top = `${y}px`;
@@ -393,6 +405,12 @@
             moderateThreshold = parseInt(document.getElementById('moderate').value);
             fewThreshold = parseInt(document.getElementById('few').value);
 
+            const densitySettings = document.getElementById('density-settings');
+            const mainButtons = document.getElementById('main-buttons');
+
+            densitySettings.style.display = densitySettings.style.display === 'none' ? 'flex' : 'none';
+            mainButtons.style.display = mainButtons.style.display === 'none' ? 'flex' : 'none';
+            
             alert("설정이 적용되었습니다.");
             toggleSettingsMenu();
             updateAllIcons();
@@ -401,6 +419,7 @@
         function initialize() {
             cameraData = {};
             mapFile = null;
+            map_uploaded = true;
             is_CP_AddMode = false;
             crowd_points = [];
             veryCrowdedThreshold = 10;
