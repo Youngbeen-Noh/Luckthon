@@ -114,7 +114,7 @@ def upload_image():
     model_name = 'yolo11n'
     model_path = os.path.join(os.path.dirname(__file__), f'model/{model_name}.pt')
     model = YOLO(model_path)
-    results = model.predict(image, stream=True, conf=0.3, imgsz=4096)
+    results = model.predict(image, stream=True, conf=0.3, imgsz=(4680, 2592))
 
     # 분석된 결과에서 사람 수 카운트 및 바운딩 박스 그리기
     for result in results:

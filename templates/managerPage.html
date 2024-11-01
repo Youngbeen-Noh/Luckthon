@@ -141,8 +141,8 @@
         /* Image popup */
         .popup-image {
             position: absolute;
-            width: 100px;
-            height: auto;
+            width: 500px;
+            height: 500px;
             border: 2px solid #ddd;
             border-radius: 8px;
             display: none;
@@ -449,8 +449,8 @@
                     const popupImage = document.getElementById('popup-image');
                     popupImage.src = url;
                     popupImage.style.display = 'block';
-                    popupImage.style.left = `${(rect.left + rect.right) / 2 - 50}px`;
-                    popupImage.style.top = `${(rect.top + rect.bottom) / 2 - 100}px`;
+                    popupImage.style.left = `${(rect.left + rect.right) / 2 - 300}px`;
+                    popupImage.style.top = `${(rect.top + rect.bottom) / 2 - 300}px`;
                 })
                 .catch(error => console.error("이미지 요청 에러:", error));
         }

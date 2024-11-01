@@ -3,8 +3,10 @@ import time
 import requests
 
 # 서버 URL과 이미지 파일 경로 설정
-# url = 'http://wcl.inu.ac.kr:8000/upload'  # 서버 URL을 실제 URL로 변경
+# 서버 URL을 실제 URL로 변경
 url = 'http://192.168.107.91:8000/upload'
+
+# 카메라마다 파일명 변경
 file_path = '/home/pi/post-image/images/Camera_1.jpg'
 
 picam2 = Picamera2()
