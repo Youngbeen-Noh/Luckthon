@@ -48,6 +48,11 @@
                 gap: 10px;
             }
 
+            .upload-button img {
+                width: 50%;
+                height: 50%;
+            }
+
             .Crowd_img {
                 display: flex;
                 align-items: center;
@@ -68,7 +73,17 @@
     </head>
     <body>
         <div class="upload-container" id="upload-container" onclick="hidePopup()">
+            <label class="upload-button" for="file-input" id="upload-button">
+                <img src="{{ url_for('static', filename='images/upload.png')}}" alt="Upload Icon" style="visibility: hidden;">
+            </label>
+            <input type="file" id="file-input" accept="image/*" style="visibility: hidden;">
             <img id="preview" class="preview" alt="미리보기 이미지" style="display:none;" onclick="hidePopup()">
+            <div class="button-container" style="visibility: hidden;">
+                <button class="camera-add-button" onclick="enable_CP_AddMode()">카메라 추가</button>
+                <button class="settings-button" onclick="toggleSettingsMenu()">설정</button>
+                <!-- Save settings button -->
+                <button class="save-button" onclick="saveSettings()">Save Settings</button>
+            </div>
         </div>
         <div class="crowded-container">
             <label class="Crowd_img" id="veryCrowded_img">
