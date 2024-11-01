@@ -24,7 +24,8 @@ page_data = {
         "moderate": 2,
         "few": 0
     },
-    "cameras": []
+    "cameras": [],
+    "cameraNames": []
 }
 
 # 업로드 폴더가 존재하지 않으면 생성
@@ -34,18 +35,21 @@ if not os.path.exists(UPLOAD_FOLDER):
 # 카메라 이름에 따라 일련번호가 붙은 파일명을 생성하는 함수
 def get_next_filename(camera_name):
     global camera_names
-    count = camera_names.get(camera_name, 0)
     filename = f"{camera_name}.jpg"
-    camera_names[camera_name] = count + 1
     return filename
 
 @app.route('/')
 def index():
-    return render_template('Web.html')
+    return render_template('userPage.html')
+
+@app.route('/manager')
+def manager():
+    return render_template('managerPage.html')
 
 @app.route('/get_page_data', methods=['GET'])
 def get_page_data():
     global page_data
+    page_data["cameraCnt"] = len(page_data["cameras"])
     if(page_data["map_uploaded"] == True):
         page_data["map_url"] = url_for('static', filename='uploads/map.jpg') if page_data["map_uploaded"] else None
     return jsonify(page_data)
@@ -70,25 +74,18 @@ def save_page_data():
 
     # Update camera positions
     cameras = json.loads(request.form.get("cameras", "[]"))
+    camera_names = json.loads(request.form.get("cameraNames", "[]"))
+    
+    print(camera_names)
+    for i in camera_names:
+        analyzed_data[i] = {
+            "person_count": 0,
+            "timestamp": None,
+            "filename": None
+        }
     page_data["cameras"] = [{"id": f"Camera_{i+1}", "x": cam["x"], "y": cam["y"]} for i, cam in enumerate(cameras)]
 
-    print(page_data)
-    return jsonify({"status": "success", "message": "Settings and data saved successfully"}), 200
-
-@app.route('/add_camera', methods=['POST'])
-def add_camera():
-    global analyzed_data
-    global camera_names
-    # 새로운 카메라 ID 생성
-    camera_id = f"Camera_{len(camera_names) + 1}"
-    camera_names[camera_id] = 0  # 초기 일련번호 설정
-    analyzed_data[camera_id] = {
-        "person_count": 0,
-        "timestamp": None,
-        "filename": None
-    }
-    return jsonify({"camera_id": camera_id}), 200
-
+    return jsonify({"status": "success", "message": "설정 정보가 성공적으로 저장되었습니다."}), 200
 
 @app.route('/upload', methods=['POST'])
 def upload_image():
@@ -154,6 +151,13 @@ def get_image(camera_name):
 @app.route('/get_camera_data', methods=['GET'])
 def get_camera_data():
     global analyzed_data
+    for data in analyzed_data:
+        if "person_count" not in data:
+            data = {
+                "person_count": 0,
+                "timestamp": None,
+                "filename": None
+            }
     # 전체 카메라의 최신 분석 데이터를 반환
     return jsonify(analyzed_data), 200
 

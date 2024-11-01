@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>User Page</title>
+        <style>
+            body {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                background-color: #f0f0f0;
+                margin: 0;
+                flex-direction: column;
+            }
+            
+            .upload-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            }
+
+            /* Image popup */
+            .popup-image {
+                position: absolute;
+                width: 100px;
+                height: auto;
+                border: 2px solid #ddd;
+                border-radius: 8px;
+                display: none;
+                background-color: white;
+                z-index: 10;
+            }
+
+            /* Preview Image */
+            .preview {
+                max-width: 800%;
+                max-height: 800px;
+                border-radius: 10px;
+            }
+
+            .crowded-container {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .Crowd_img {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            /* crowd_point style */
+            .crowd_point {
+                position: absolute;
+                width: 40px;
+                height: 60px;
+                background-size: cover;
+                background-color: transparent;
+                border-radius: 50%;
+                cursor: pointer;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="upload-container" id="upload-container" onclick="hidePopup()">
+            <img id="preview" class="preview" alt="미리보기 이미지" style="display:none;" onclick="hidePopup()">
+        </div>
+        <div class="crowded-container">
+            <label class="Crowd_img" id="veryCrowded_img">
+                <img src="{{url_for('static', filename='images/person_red.png')}}" width="30px" height="40px">
+                <div>매우혼잡</div>
+            </label>
+            <label class="Crowd_img" id="Crowded_img">
+                <img src="{{url_for('static', filename='images/person_org.png')}}" width="30px" height="40px">
+                <div>혼잡</div>
+            </label>
+            <label class="Crowd_img" id="moderateCrowded_img">
+                <img src="{{url_for('static', filename='images/person_yell.png')}}" width="30px" height="40px">
+                <div>적정</div>
+            </label>            
+            <label class="Crowd_img" id="fewCrowded_img">
+                <img src="{{url_for('static', filename='images/person_green.png')}}" width="30px" height="40px">
+                <div>한산</div>
+            </label>
+        </div>
+        <!-- Popup image element -->
+        <img id="popup-image" class="popup-image" alt="카메라 이미지" style="display: none;">
+        <div class="density-settings" id="density-settings" style="display: none;">
+            <input type="number" id="veryCrowded" value="10">
+            <input type="number" id="crowded" value="5">
+            <input type="number" id="moderate" value="2">
+            <input type="number" id="few" value="0">
+        </div>
+    </body>
+    <script>
+        let cameraData = {};
+        let crowd_points = [];
+        let veryCrowdedThreshold = 10;
+        let crowdedThreshold = 5;
+        let moderateThreshold = 2;
+        let fewThreshold = 0;
+
+        // Load saved settings from server and apply them
+        function loadSettings() {
+            fetch('/get_page_data')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.map_uploaded) {
+                        document.getElementById('preview').src = data.map_url;
+                        document.getElementById('preview').style.display = 'block';
+                    }
+                    else {
+                        document.getElementById('preview').textContent = "맵이 등록되지 않았습니다. 관리자에게 문의하세요"
+                        return;
+                    }
+                    applyDensitySettings(data.density_thresholds);
+                    loadIcons(data.cameras);
+                })
+                .catch(error => console.error("Error loading settings:", error));
+        }
+
+        function applyDensitySettings(thresholds) {
+            veryCrowdedThreshold = thresholds.veryCrowded;
+            crowdedThreshold = thresholds.crowded;
+            moderateThreshold = thresholds.moderate;
+            fewThreshold = thresholds.few;
+            document.getElementById('veryCrowded').value = veryCrowdedThreshold
+            document.getElementById('crowded').value = crowdedThreshold
+            document.getElementById('moderate').value = moderateThreshold
+            document.getElementById('few').value = fewThreshold
+        }
+
+        function loadIcons(cameras) {
+            cameras.forEach(camera => {
+                const crowd_point = document.createElement('div');
+                crowd_point.classList.add('crowd_point');
+
+                crowd_point.style.left = `${camera.x}px`;
+                crowd_point.style.top = `${camera.y}px`;
+                document.querySelector('.upload-container').appendChild(crowd_point);
+                crowd_point.dataset.cameraNumber = camera.id;
+                crowd_point.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showPopup(cameraID, camera.x, camera.y);
+                });
+                crowd_points.push({id : camera.id, x : camera.x, y : camera.y});
+            });
+        }
+
+        function showPopup(cameraID, x, y) {
+            fetch(`/image/${cameraID}`)
+                .then(response => response.blob())
+                .then(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const popupImage = document.getElementById('popup-image');
+                    popupImage.src = url;
+                    popupImage.style.display = 'block';
+                    popupImage.style.left = `${x + 20}px`;
+                    popupImage.style.top = `${y + 20}px`;
+                })
+                .catch(error => console.error("이미지 요청 에러:", error));
+        }
+
+        function hidePopup() {
+            const popupImage = document.getElementById('popup-image');
+            popupImage.style.display = 'none';
+        }
+
+        function updateAllIcons() {
+            document.querySelectorAll('.crowd_point').forEach(icon => {
+                const cameraNumber = icon.dataset.cameraNumber;
+                const cameraInfo = cameraData[cameraNumber];
+                if (cameraInfo) {
+                    const personCount = cameraInfo.person_count;
+                    if (personCount >= veryCrowdedThreshold) {
+                        icon.style.backgroundImage = "url('static/images/person_red.png')";
+                    } else if (personCount >= crowdedThreshold) {
+                        icon.style.backgroundImage = "url('static/images/person_org.png')";
+                    } else if (personCount >= moderateThreshold) {
+                        icon.style.backgroundImage = "url('static/images/person_yell.png')";
+                    } else {
+                        icon.style.backgroundImage = "url('static/images/person_green.png')";
+                    }
+                }
+            });
+        }
+
+        loadSettings();
+
+        setInterval(() => {
+            fetch('/get_camera_data')
+                .then(response => response.json())
+                .then(data => {
+                    cameraData = data;
+                    updateAllIcons();
+                })
+                .catch(error => console.error("카메라 데이터 갱신 에러:", error));
+        }, 5000);
+    </script>
+</html>

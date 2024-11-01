@@ -173,28 +173,28 @@
             <button class="camera-add-button" onclick="enable_CP_AddMode()">카메라 추가</button>
             <button class="settings-button" onclick="toggleSettingsMenu()">설정</button>
         </div>
-        
-        <div class="crowded-container">
-            <label class="Crowd_img" id="veryCrowded_img">
-                <img src="{{url_for('static', filename='images/person_red.png')}}" width="30px" height="40px">
-                <div>매우혼잡</div>
-            </label>
-            <label class="Crowd_img" id="Crowded_img">
-                <img src="{{url_for('static', filename='images/person_org.png')}}" width="30px" height="40px">
-                <div>혼잡</div>
-            </label>
-            <label class="Crowd_img" id="moderateCrowded_img">
-                <img src="{{url_for('static', filename='images/person_yell.png')}}" width="30px" height="40px">
-                <div>적정</div>
-            </label>            
-            <label class="Crowd_img" id="fewCrowded_img">
-                <img src="{{url_for('static', filename='images/person_green.png')}}" width="30px" height="40px">
-                <div>한산</div>
-            </label>
-        </div>
-        <!-- Save settings button -->
-        <button class="save-button" onclick="saveSettings()">Save Settings</button>
     </div>
+
+    <div class="crowded-container">
+        <label class="Crowd_img" id="veryCrowded_img">
+            <img src="{{url_for('static', filename='images/person_red.png')}}" width="30px" height="40px">
+            <div>매우혼잡</div>
+        </label>
+        <label class="Crowd_img" id="Crowded_img">
+            <img src="{{url_for('static', filename='images/person_org.png')}}" width="30px" height="40px">
+            <div>혼잡</div>
+        </label>
+        <label class="Crowd_img" id="moderateCrowded_img">
+            <img src="{{url_for('static', filename='images/person_yell.png')}}" width="30px" height="40px">
+            <div>적정</div>
+        </label>            
+        <label class="Crowd_img" id="fewCrowded_img">
+            <img src="{{url_for('static', filename='images/person_green.png')}}" width="30px" height="40px">
+            <div>한산</div>
+        </label>
+    </div>
+    <!-- Save settings button -->
+    <button class="save-button" onclick="saveSettings()">Save Settings</button>
 
     <div class="settings-menu" id="settings-menu">
         <div class="setting-button-list" id="main-buttons">
@@ -221,6 +221,8 @@
     <img id="popup-image" class="popup-image" alt="카메라 이미지">
 
     <script>
+        let cameraNames = {};
+        let cameraCnt = 0;
         let cameraData = {};
         let mapFile = null;
         let is_CP_AddMode = false;
@@ -249,7 +251,7 @@
                 few: fewThreshold
             }));
             formData.append("cameras", JSON.stringify(crowd_points));
-
+            formData.append("cameraNames", JSON.stringify(cameraNames));
             fetch('/save_page_data', {
                 method: 'POST',
                 body: formData
@@ -267,10 +269,16 @@
                     if (data.map_uploaded) {
                         document.getElementById('preview').src = data.map_url;
                         document.getElementById('preview').style.display = 'block';
-                        document.getElementById('upload-button').style.display = 'none';
+                        document.getElementById('upload-button').style.visibility='hidden';
+                    }
+                    else{
+                        initialize();
+                        return;
                     }
                     applyDensitySettings(data.density_thresholds);
                     loadIcons(data.cameras);
+                    cameraNames = data.cameraNames
+                    cameraCnt = Object.keys(data.cameraNames).length
                 })
                 .catch(error => console.error("Error loading settings:", error));
         }
@@ -291,10 +299,15 @@
                 const crowd_point = document.createElement('div');
                 crowd_point.classList.add('crowd_point');
 
+                const rect = preview.getBoundingClientRect();
                 crowd_point.style.left = `${camera.x}px`;
                 crowd_point.style.top = `${camera.y}px`;
                 document.querySelector('.upload-container').appendChild(crowd_point);
                 crowd_point.dataset.cameraNumber = camera.id;
+                crowd_point.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showPopup(cameraID, camera.x, camera.y);
+                });
                 crowd_points.push({id : camera.id, x : camera.x, y : camera.y});
             });
         }
@@ -309,7 +322,7 @@
                 reader.onload = (e) => {
                     preview.src = e.target.result;
                     preview.style.display = 'block';
-                    uploadButton.style.display = 'none';
+                    uploadButton.style.visibility = 'hidden';
                 };
                 reader.readAsDataURL(mapFile);
             }
@@ -327,32 +340,35 @@
                 }
                 return;
             }
+
             const preview = document.getElementById('preview');
             const crowd_point = document.createElement('div');
             crowd_point.classList.add('crowd_point');
 
             const rect = preview.getBoundingClientRect();
-            const x = event.clientX - rect.left - 6;
-            const y = event.clientY - rect.top - 6;
+            console.log(rect.left);
+            const x = event.clientX - rect.left - 20;
+            const y = event.clientY - rect.top + 60 + window.scrollY;
 
             crowd_point.style.left = `${x}px`;
             crowd_point.style.top = `${y}px`;
 
             document.querySelector('.upload-container').appendChild(crowd_point);
 
-            fetch('/add_camera', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    const cameraID = data.camera_id;
-                    crowd_point.dataset.cameraNumber = cameraID;
-                    crowd_points.push({id : cameraID, x : x, y : y})
-                    alert(`카메라가 추가되었습니다. ID: ${cameraID}`);
-                    crowd_point.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        showPopup(cameraID, x, y);
-                    });
-                })
-                .catch(error => console.error("카메라 추가 에러:", error));
+            camera_id = `Camera_${Object.keys(cameraNames).length + 1}`;
+            cameraNames[camera_id] = cameraCnt++;
+            crowd_point.dataset.cameraNumber = camera_id;
+            crowd_points.push({id : camera_id, x : x, y : y})
+            document.querySelectorAll('.crowd_point').forEach(icon =>{
+                console.log(icon)
+                icon.style.backgroundImage = "url('static/images/person_green.png')";
+                }
+            )
+            alert(`카메라가 추가되었습니다. ID: ${camera_id}`);
+            crowd_point.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showPopup(camera_id, x, y);
+            });
 
             is_CP_AddMode = false;
         }
@@ -395,7 +411,7 @@
             const uploadButton = document.getElementById('upload-button');
             const settingsMenu = document.getElementById('settings-menu');
             preview.style.display = 'none';
-            uploadButton.style.display = 'flex';
+            uploadButton.style.visibility = 'visible';
             settingsMenu.style.display = 'none';
             resetData();
         }
@@ -413,11 +429,12 @@
                 .then(response => response.blob())
                 .then(blob => {
                     const url = URL.createObjectURL(blob);
+                    const rect = preview.getBoundingClientRect();
                     const popupImage = document.getElementById('popup-image');
                     popupImage.src = url;
                     popupImage.style.display = 'block';
-                    popupImage.style.left = `${x + 20}px`;
-                    popupImage.style.top = `${y + 20}px`;
+                    popupImage.style.left = `${(rect.left + rect.right) / 2 - 50}px`;
+                    popupImage.style.top = `${(rect.top + rect.bottom) / 2 - 100}px`;
                 })
                 .catch(error => console.error("이미지 요청 에러:", error));
         }
