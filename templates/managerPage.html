@@ -85,6 +85,54 @@
             align-items: center;
             gap: 10px;
         }
+        .settings-menu {
+            position: absolute;
+            top: 60px;
+            display: none;
+            flex-direction: column;
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            z-index: 1;
+        }
+        .settings-menu button {
+            background: none;
+            border: none;
+            padding: 10px;
+            text-align: left;
+            cursor: pointer;
+            width: 100%;
+        }
+        .settings-menu button:hover {
+            background-color: #f0f0f0;
+        }
+        .popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .popup {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            width: 300px;
+            text-align: center;
+        }
+
+        .popup input {
+            margin-top: 10px;
+            padding: 5px;
+            width: 80%;
+        }
     </style>
 </head>
 <body>
@@ -99,7 +147,7 @@
 
     <div class="button-container">
         <button class="camera-add-button" id="camera-add-button" onclick="enableCPAddMode()">카메라 추가</button>
-        <button class="settigs-button" onclick="toggleSettingsMenu()">설정</button>
+        <button class="settigs-button" id="settings-button" onclick="toggleSettingsMenu()">설정</button>
         <button class="save-button" onclick="saveSettings()">Save Settings</button>
     </div>
 
@@ -122,13 +170,103 @@
         </label>
     </div>
 
+    <div class="settings-menu" id="settings-menu">
+        <button onclick="openDensitySettings()">혼잡도 설정</button>
+        <button onclick="initialize()">초기화</button>
+    </div>
+
+    <div class="popup-overlay" id="popup-overlay">
+        <div class="popup">
+            <h3>혼잡도 설정</h3>
+            <label>매우 혼잡 :</label>
+            <input type="number" id="veryCrowded" placeholder="예: 10"><br>
+            <label>혼잡 :</label>
+            <input type="number" id="crowded" placeholder="예: 5"><br>
+            <label>적정 :</label>
+            <input type="number" id="moderate" placeholder="예: 2"><br>
+            <label>한산 :</label>
+            <input type="number" id="few" placeholder="예: 0"><br>
+            <button class="save-button" onclick="saveCrowdSettings()">저장</button>
+            <button class="save-button" onclick="closeDensitySettings()">닫기</button>
+        </div>
+    </div>
 
     <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
     <script>
         const socket = io.connect('http://localhost:8000');
+        let analyzed_data = {}
         let cameraNames = {};
         let crowdPoints = [];
+        let mapFile
+        let map_uploaded = false;
         let isCPAddMode = false;
+        let densityThresholds = {
+            veryCrowded: 10,
+            crowded: 5,
+            moderate: 2,
+            few: 0
+        };
+
+        function initialize() {
+            // 기본값으로 설정
+            densityThresholds = {
+                veryCrowded: 10,
+                crowded: 5,
+                moderate: 2,
+                few: 0
+            };
+
+            // 입력 필드에 기본값 설정
+            document.getElementById("veryCrowded").value = densityThresholds.veryCrowded;
+            document.getElementById("crowded").value = densityThresholds.crowded;
+            document.getElementById("moderate").value = densityThresholds.moderate;
+            document.getElementById("few").value = densityThresholds.few;
+
+            // 아이콘 색상 초기화
+            applyDensitySettings(densityThresholds); // 기본 설정이 적용된 상태로 아이콘을 다시 로드
+
+            alert("설정이 초기화되었습니다.");
+        }
+
+        function saveCrowdSettings() {
+            const veryCrowded = parseInt(document.getElementById("veryCrowded").value) || 10;
+            const crowded = parseInt(document.getElementById("crowded").value) || 5;
+            const moderate = parseInt(document.getElementById("moderate").value) || 2;
+            const few = parseInt(document.getElementById("few").value) || 0;
+
+            // densityThresholds에 사용자 설정 저장
+            densityThresholds = { veryCrowded, crowded, moderate, few };
+
+            closeDensitySettings();
+            toggleSettingsMenu();
+        }
+
+
+        function toggleSettingsMenu() {
+            const settingsMenu = document.getElementById('settings-menu');
+            settingsMenu.style.display = settingsMenu.style.display === 'none' ? 'flex' : 'none';
+        }
+
+        function openDensitySettings() {
+            document.getElementById("popup-overlay").style.display = "flex";
+        }
+
+        // Hide popup
+        function closeDensitySettings() {
+            document.getElementById("popup-overlay").style.display = "none";
+        }
+
+        function getIconColor(crowdLevel) {
+            if (crowdLevel >= densityThresholds.veryCrowded) {
+                return "url('static/images/person_red.png')"; // 매우 혼잡
+            } else if (crowdLevel >= densityThresholds.crowded) {
+                return "url('static/images/person_org.png')"; // 혼잡
+            } else if (crowdLevel >= densityThresholds.moderate) {
+                return "url('static/images/person_yell.png')"; // 적정
+            } else {
+                return "url('static/images/person_green.png')"; // 한산
+            }
+        }
 
         function previewImage(event) {
             const input = event.target;
@@ -136,6 +274,7 @@
             const preview = document.getElementById('preview');
             const uploadButton = document.getElementById('upload-button');
             if (mapFile) {
+                map_uploaded = true;
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     preview.src = e.target.result;
@@ -147,18 +286,6 @@
             } else {
                 console.error("No file selected for upload.");
             }
-        }
-        
-        // 설정 로드 및 초기화
-        function loadSettings() {
-            fetch('/get_page_data')
-                .then(response => response.json())
-                .then(data => {
-                    cameraNames = data.cameraNames || {};
-                    applyDensitySettings(data.page_data.density_thresholds);
-                    loadIcons(data.page_data.cameras);
-                })
-                .catch(error => console.error("Error loading settings:", error));
         }
 
         function applyDensitySettings(thresholds) {
@@ -174,6 +301,8 @@
                 crowdPoint.className = 'crowd_point';
                 crowdPoint.style.left = `${camera.x}px`;
                 crowdPoint.style.top = `${camera.y}px`;
+                console.log(analyzed_data)
+                crowdPoint.style.backgroundImage = getIconColor(analyzed_data[camera.id].person_count);
                 document.body.appendChild(crowdPoint);
             });
         }
@@ -190,7 +319,7 @@
                 isCPAddMode = true;
                 document.getElementById('preview').addEventListener('click', addCrowdPoint);
                 alert('카메라 추가가 모두 끝나면 카메라 제거 버튼을 눌러주세요');
-                document.getElementById('camera-add-button').innerText = "카메라 제거";
+                document.getElementById('camera-add-button').innerText = "카메라 추가 완료";
             }
         }
 
@@ -207,54 +336,77 @@
 
             crowd_point.style.left = `${x}px`;
             crowd_point.style.top = `${y}px`;
-            crowd_point.style.backgroundImage = "url('static/images/person_green.png')"; // 아이콘 이미지 설정
+            crowd_point.style.backgroundImage = "url('static/images/person.png')"; // 아이콘 이미지 설정
 
             document.querySelector('.upload-container').appendChild(crowd_point);
 
             const cameraID = `Camera_${Object.keys(cameraNames).length + 1}`;
             cameraNames[cameraID] = Object.keys(cameraNames).length;
-            crowd_points.push({ id: camera_id, x: x, y: y });
+            crowdPoints.push({ id: cameraID, x: x, y: y });
+
+            analyzed_data[cameraID] = {
+                "person_count": 0,
+                "filename": null
+            }
 
             crowd_point.addEventListener('click', (e) => {
                 e.stopPropagation();
-                showPopup(camera_id, x, y);
+                showPopup(cameraID, x, y);
             });
 
-
-            fetch('/add_camera', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ x, y })
-            }).then(() => {
-                isCPAddMode = false;
-            });
+            console.log(crowdPoints);
         }
 
         // 설정 저장
         function saveSettings() {
-            const densityThresholds = {
-                veryCrowded: document.getElementById('veryCrowded').value,
-                crowded: document.getElementById('crowded').value,
-                moderate: document.getElementById('moderate').value,
-                few: document.getElementById('few').value
-            };
+            const formData = new FormData();
 
+            if (map_uploaded) {
+                formData.append("map", mapFile); // mapFile을 FormData에 추가
+                console.log("mapFile 추가됨:", mapFile); // 디버깅을 위한 콘솔 로그
+            } else {
+                if(mapFile)
+                console.log("map이 선택되지 않았습니다.");
+            }
+
+            // 예제 설정 데이터 - 밀도 기준과 카메라 위치 데이터 추가
+            formData.append("density_thresholds", JSON.stringify(densityThresholds));
+            formData.append("cameras", JSON.stringify(crowdPoints));
+            formData.append("analyzed_data", JSON.stringify(analyzed_data));
             fetch('/save_page_data', {
                 method: 'POST',
-                body: new URLSearchParams({
-                    density_thresholds: JSON.stringify(densityThresholds),
-                    cameras: JSON.stringify(crowdPoints)
-                })
-            });
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => alert(data.message))
+            .catch(error => console.error("설정 저장 에러:", error));
         }
 
         // 서버에서 받은 실시간 업데이트 처리
         socket.on('update_data', (data) => {
+            if (data.page_data.map_uploaded) {
+                document.getElementById('preview').src = data.page_data.map_url;
+                document.getElementById('preview').style.display = 'block';
+                document.getElementById('upload-button').style.visibility='hidden';
+                map_uploaded=true;
+            }
+            else{
+                initialize();
+                return;
+            }
             console.log("Update received from server:", data);
-            cameraNames = data.cameraNames;
+            analyzed_data=data.analyzed_data;
+            console.log(analyzed_data);
+            cameraNames = data.cameraNames || {};
             loadIcons(data.page_data.cameras);
             applyDensitySettings(data.page_data.density_thresholds);
+            document.getElementById('settings-menu').style.display = 'none';
         });
+
+        function loadSettings(){
+            fetch('/get_initial_page')
+                .catch(error => console.error("Error loading settings:", error));
+        }
 
         loadSettings(); // 초기 설정 로드
     </script>
